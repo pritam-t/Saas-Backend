@@ -22,7 +22,7 @@ Every decision in this document carries one label:
 
 ### 0.2 Working rules
 
-1. Work on **one bounded phase at a time** (section 13). Do not start the next phase until the current phase's acceptance criteria pass.
+1. Work on **one bounded phase at a time** (section 14). Do not start the next phase until the current phase's acceptance criteria pass.
 2. After each phase: run the full test suite (`./mvnw verify` or `mvn verify`), commit with a clear message (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`), and tick the checklist in section 16.
 3. **Flyway is the only schema authority.** Never use `spring.jpa.hibernate.ddl-auto=create|update|create-drop`. Never edit a migration that has already been applied; add a new one.
 4. Never trust a tenant id or schema name supplied by the client. Never concatenate untrusted text into SQL identifiers.
@@ -66,23 +66,25 @@ Core capabilities (all **LOCKED** unless noted):
 
 ## 2. Technology stack
 
-Versions below were read from test output in the design doc. **Verify against `pom.xml` and correct this table.**
+Verified against `pom.xml` and the Spring Boot 4.1.1 BOM in Phase 0 (2 Oct 2026). `pom.xml` is the source of truth; update this table when it changes.
 
-| Technology | Use | Notes |
-|---|---|---|
-| Java 25 | Runtime | |
-| Spring Boot 4.1.1 | Framework | |
-| Spring Data JPA, Hibernate ORM 7.4.5.Final | Persistence | Multi-tenancy SPI used in Phase 5 |
-| PostgreSQL 18.3 | Database | PostgreSQL 18 has built-in `uuidv7()`; optional for ids |
-| Flyway | Migrations | Needs the PostgreSQL module (`flyway-database-postgresql`) on Flyway 10+ |
-| Spring Security + JWT | AuthN/AuthZ | Keep the JWT library already used by `JwtService` |
-| BCrypt | Passwords | |
-| JUnit, Spring Boot Test, Mockito | Tests | |
-| Testcontainers (PostgreSQL) | **PROPOSED** | Replace reliance on a long-lived dev DB |
-| Caffeine | **PROPOSED** | In-process caches (tenant registry, permissions) |
-| Bucket4j | **PROPOSED** | Rate limiting, in-memory (see section 10) |
-| Docker, Docker Compose | **PROPOSED** (was in original blueprint) | |
-| Maven | Build | |
+| Technology | Version | Use | Notes |
+|---|---|---|---|
+| Java | 25 | Runtime | |
+| Spring Boot | 4.1.1 | Framework | Spring Framework 7.0.9 |
+| Spring Data JPA, Hibernate ORM | 7.4.5.Final | Persistence | Multi-tenancy SPI used in Phase 5 |
+| PostgreSQL | server 18.3, JDBC driver 42.7.13 | Database | Tests run on the `postgres:18` image. PostgreSQL 18 has built-in `uuidv7()`; optional for ids |
+| Flyway | 12.4.0 | Migrations | With `flyway-database-postgresql` (required on Flyway 10+) |
+| Spring Security | 7.1.1 | AuthN/AuthZ | |
+| JJWT (`jjwt-api`, `-impl`, `-jackson`) | 0.12.6 | JWT | Version pinned in `pom.xml` (not Boot-managed). `jjwt-jackson` uses Jackson 2; Boot 4 manages Jackson 3.1.5 |
+| BCrypt | (Spring Security) | Passwords | |
+| JUnit Jupiter, Spring Boot Test, Mockito | 6.0.3, 4.1.1, 5.23.0 | Tests | |
+| Testcontainers (PostgreSQL) | 2.0.5 | Integration tests | Added in Phase 1. Artifacts `testcontainers-postgresql`, `testcontainers-junit-jupiter`; class `org.testcontainers.postgresql.PostgreSQLContainer`; Boot `@ServiceConnection` |
+| Caffeine | not yet added | **PROPOSED** | In-process caches (tenant registry, permissions) |
+| Bucket4j | not yet added | **PROPOSED** | Rate limiting, in-memory (see section 10) |
+| Docker, Docker Compose | not yet added | **PROPOSED** (was in original blueprint) | |
+| Maven | 3.9.16 (wrapper) | Build | |
+| Lombok | removed in Phase 1 | | Was declared but unused |
 
 ---
 
@@ -190,7 +192,10 @@ Proposed event catalog: `PLATFORM_LOGIN_SUCCESS/FAILURE`, `TENANT_USER_LOGIN_SUC
 
 ## 6. Current implementation state (as of 2 Oct 2026)
 
-Done:
+> **Update after Phase 1 (2 Oct 2026).** Sections 6, 6.1 and 6.2 below describe the state *before* Phase 0/1 and are kept as history.
+> Phase 0 found that the committed repo could not migrate at all: `V1` and `V5` both created `public.tenants`, and there were two `V7` files (`Found more than one migration with version 7`, all 10 tests erroring). With owner approval the public migrations were squashed into `db/migration/public/V1..V3` (V1 = final `tenants` table; V5, V6, both V7 deleted), `spring.flyway.locations` is explicit, `open-in-view=false`, tests run on Testcontainers `postgres:18` with a `test` profile, and `Tenant` ids are assigned (no `@GeneratedValue`). Baseline: **15/15 tests green** (the original 10 plus 5 in `FlywaySchemaIntegrationTest`). Local dev databases must be dropped and recreated once.
+
+Done (pre-Phase 1):
 
 - Spring Boot project `saas-backend` generated and running; PostgreSQL connected.
 - Flyway integrated; currently at **version 6** (`6 - add tenant slug` applied).
@@ -217,6 +222,25 @@ Correct approach: reconcile through a **new Flyway migration** (next version, ex
 ### 6.2 Known cleanup items
 
 Lombok/Unsafe deprecation warnings, Mockito's future agent requirement, and `spring.jpa.open-in-view` (see 9.3: this one is required, not cosmetic).
+
+Phase 1: Lombok removed (it was unused) and `open-in-view=false` set. Mockito's agent warning is still open.
+
+### 6.3 Repo findings (Phase 0) and target phase
+
+Found while reconciling this document with the repo. Deliberately **not** changed in Phase 1.
+
+| Finding | Target phase |
+|---|---|
+| `security/api/SecurityTestController` exposes `/api/v1/auth/test` and `/api/v1/protected/test` in production code | Phase 2: delete, or move to `src/test` |
+| `auth` package (login at `/api/v1/auth/login`, `AuthenticationService`, empty `AuthService`) is not in the planned package layout | Phase 3: fold into platform auth / `security` |
+| Duplicate empty classes `auth/dto/LoginRequest` and `auth/dto/LoginResponse` (the real records live in `auth/api`) | Phase 3 |
+| `TenantController` at `/api/tenants` is reachable by any authenticated token, with no role check | Phase 4: replaced by `POST /platform/tenants` |
+| `TenantService` builds schema names as `tenant_` + 32 hex chars; `.claude/rules` require `t_` + 12 hex chars and `CHECK (schema_name ~ '^t_[a-z0-9]{6,40}$')` (no CHECK added yet, by owner decision) | Phase 4: schema naming/validator |
+| `uk_tenants_name` (unique tenant display name) kept for now | Phase 4: revisit |
+| `public.permissions` has no `created_at` (4.3 lists one) | Phase 4: with `R__permissions.sql` |
+| `PlatformUserServiceIntegrationTest` sits in the `platformuser.persistence` package but tests the application service | Phase 3 |
+| `show-sql` and `format_sql` are on in the main `application.yml` | Phase 10: move to a dev-only profile (proposed) |
+| The JVM time zone is sent to PostgreSQL. `postgres:18` rejects the Windows legacy name `Asia/Calcutta`; tests pin `-Duser.timezone=UTC` in Surefire, but the app is unpinned | Phase 10: pin the time zone for the Docker/Compose runtime (proposed) |
 
 ---
 
@@ -254,7 +278,7 @@ Verify the Hibernate 7 SPI details (generic `CurrentTenantIdentifierResolver<T>`
 - Claims: `sub` (user UUID), `typ` (`PLATFORM` | `TENANT`), `tid` (tenant UUID, **never** the schema name; absent for platform tokens), `jti`, `iss`, `aud`, `iat`, `exp`.
 - Separate **audiences** (`saas-platform`, `saas-tenant`), and preferably separate signing keys, so a tenant token cannot be replayed on platform endpoints.
 - Algorithm pinned (reject `none` and algorithm confusion); key of at least 256 bits from an environment variable; validate `iss`, `aud`, `exp`.
-- Do **not** put permissions in the token. Resolve them server-side (cached, see 8.7).
+- Do **not** put permissions in the token. Resolve them server-side (cached, see 8.8).
 - Access token TTL default 15 minutes; refresh token 7 days (both configurable).
 
 Adapt the existing `JwtService` and its tests rather than rewriting from scratch.
@@ -459,9 +483,9 @@ Changes from the design doc's roadmap: DTO/exception handling and the audit serv
 | 1 | Fix Tenant entity ↔ Flyway mismatch; `ddl-auto=validate`; `open-in-view=false`; Testcontainers | **10/10 tests green**, empty-DB migration test passes |
 | 2 | Cross-cutting foundation: error model + `@RestControllerAdvice`, DTO/validation conventions, `AuditService` interface (sync), `common` validators | Standard error body on all failures; audit entry written in a test |
 | 3 | Platform user model finalized (migration), platform login, finalized JWT claims, platform filter chain, refresh tokens + `tokens_valid_after` | SUPER_ADMIN can log in/refresh/logout; tenant-type token rejected on `/platform/**`; reuse detection tested |
-| 4 | Tenant provisioning: schema naming/validator, `PROVISIONING` state machine, tenant Flyway location, seeding default roles + first admin, `POST /platform/tenants`, startup tenant migration loop | Tenant created end-to-end; forced failure leaves `PROVISIONING_FAILED` and retry succeeds; injection attempts rejected |
+| 4 | Tenant provisioning: schema naming/validator, `PROVISIONING` state machine, tenant Flyway location, permission seed `R__permissions.sql` (default roles reference `public.permissions(code)` by FK), minimal tenant `users`/`roles`/`user_roles`/`role_permissions` tables and entities, seeding default roles + first admin, `POST /platform/tenants`, startup tenant migration loop | Tenant created end-to-end; forced failure leaves `PROVISIONING_FAILED` and retry succeeds; injection attempts rejected |
 | 5 | Tenant context + Hibernate multi-tenancy (resolver, connection provider with `search_path` reset, public-entity handling), tenant login by slug, tenant filter chain, status enforcement. **Then the isolation proof**: two tenants, same-id users, parallel requests on a pool of 2 | Isolation + pool-leak tests green; `TenantContext` cleared on every request |
-| 6 | Tenant users, roles, role-permission mapping, permission seeding migration, RBAC enforcement, permission cache, escalation rules | Multiple roles per user work; privilege-escalation and last-admin cases rejected; authority/seed consistency test |
+| 6 | Tenant user and role management on the Phase 4 tables, role-permission mapping logic, RBAC enforcement, permission cache, escalation rules | Multiple roles per user work; privilege-escalation and last-admin cases rejected; authority/seed consistency test |
 | 7 | Audit completion: full event catalog, append-only trigger, `/platform/audit` with pagination/date filter (and optional `/t/audit`), optional hash chain | Every sensitive action audited; UPDATE/DELETE on audit rejected |
 | 8 | Rate limiting (Bucket4j, per-IP login, per-tenant), Actuator (health public, metrics protected), API contract polish and OpenAPI docs (optional) | 429 with `Retry-After`; health reachable, metrics protected |
 | 9 | Security test expansion: role/permission matrix tests, cross-tenant negative tests, JWT tampering/expiry/audience tests | All matrix cells covered by tests |
@@ -503,8 +527,8 @@ Why schema-per-tenant (and the trade-offs vs. database-per-tenant and shared-sch
 
 ## 16. Progress checklist (agent: update after each phase)
 
-- [ ] Phase 0: reconcile doc with repo
-- [ ] Phase 1: green baseline (10/10), validate mode, Testcontainers
+- [x] Phase 0: reconcile doc with repo (discrepancies in 6 and 6.3; section 2 corrected)
+- [x] Phase 1: green baseline (15/15: original 10 + empty-DB schema test), validate mode, Testcontainers
 - [ ] Phase 2: error model, DTO conventions, audit interface
 - [ ] Phase 3: platform auth, JWT claims, refresh tokens
 - [ ] Phase 4: tenant provisioning and tenant migrations

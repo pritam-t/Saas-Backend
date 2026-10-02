@@ -7,12 +7,6 @@ highlight resume project: correctness, security and explainability matter more t
 At the start of a phase, read only: section 0 (rules), the phase row in section 14,
 and the sections that phase touches. The repo is the truth about what exists; the spec is the truth about intent.
 
-## Spec errata (apply until the spec is corrected)
-- Phases are in spec section **14** (not 13). Caching is described in **8.8** (not 8.7).
-- `R__permissions.sql` (permission seed) belongs in **Phase 4**, not Phase 6: default tenant roles reference `public.permissions(code)` by FK.
-- Minimal tenant `users`/`roles`/`user_roles`/`role_permissions` tables and entities belong in **Phase 4** (needed for first admin and Phase 5 login). Phase 6 keeps the RBAC logic, caching and escalation rules.
-- Spec section 2 versions came from test output. Verify against `pom.xml` in Phase 0 and trust `pom.xml`.
-
 ## Stack (verify in Phase 0)
 Java 25, Spring Boot 4.1.x, Spring Data JPA / Hibernate 7, PostgreSQL 18, Flyway, Spring Security + JWT, BCrypt, Maven,
 JUnit + Testcontainers (PostgreSQL). Planned: Caffeine, Bucket4j, Docker Compose. Not planned: Redis, OAuth, microservices.
@@ -26,6 +20,7 @@ JUnit + Testcontainers (PostgreSQL). Planned: Caffeine, Bucket4j, Docker Compose
 ## Package layout
 Base package `com.pritam.saasbackend`, organised by capability:
 `common`, `tenant`, `platformuser`, `permission`, `tenantuser`, `role`, `audit`, `security` (`jwt`, chains, filters, refresh tokens), `ratelimit`, `config`.
+`auth` is **temporary** (pre-spec platform login code); it is folded into platform auth in Phase 3 (spec 6.3).
 Migrations: `src/main/resources/db/migration/public/` and `.../tenant/` (separate locations; never reuse a version number across them).
 
 ## Hard rules (never break; ask if blocked)
