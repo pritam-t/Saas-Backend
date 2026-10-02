@@ -102,4 +102,53 @@ class FlywaySchemaIntegrationTest {
         assertThat(uniqueConstraints)
                 .containsExactly("uk_tenants_name", "uk_tenants_schema_name", "uk_tenants_slug");
     }
+
+    @Test
+    void shouldCreateAuditLogTable() {
+
+        List<Map<String, Object>> columns = jdbcTemplate.queryForList("""
+                SELECT column_name, data_type, character_maximum_length, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'audit_log'
+                ORDER BY ordinal_position
+                """);
+
+        assertThat(columns)
+                .extracting(
+                        column -> column.get("column_name"),
+                        column -> column.get("data_type"),
+                        column -> column.get("character_maximum_length"),
+                        column -> column.get("is_nullable"))
+                .containsExactly(
+                        tuple("id", "uuid", null, "NO"),
+                        tuple("actor_type", "character varying", 30, "NO"),
+                        tuple("actor_id", "uuid", null, "YES"),
+                        tuple("actor_email", "character varying", 255, "YES"),
+                        tuple("tenant_id", "uuid", null, "YES"),
+                        tuple("action", "character varying", 100, "NO"),
+                        tuple("target_type", "character varying", 50, "YES"),
+                        tuple("target_id", "character varying", 100, "YES"),
+                        tuple("details", "jsonb", null, "NO"),
+                        tuple("ip", "character varying", 45, "YES"),
+                        tuple("created_at", "timestamp with time zone", null, "NO"));
+    }
+
+    @Test
+    void shouldConstrainAuditLogActorTypeAndIndexByTenantAndTime() {
+
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT conname
+                FROM pg_constraint
+                WHERE conrelid = 'public.audit_log'::regclass AND contype IN ('c', 'f')
+                """, String.class))
+                .as("only the actor_type CHECK; deliberately no foreign keys")
+                .containsExactly("chk_audit_log_actor_type");
+
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public' AND indexname = 'idx_audit_log_tenant_created'
+                """, String.class))
+                .contains("(tenant_id, created_at)");
+    }
 }
