@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/saas_backend
+    username: postgres
+    password: ${DB_PASSWORD}
+
+security:
+  jwt:
+    secret: test-only-secret-key-for-jwt-signing-1234567890
+    access-token-expiration: 900000
