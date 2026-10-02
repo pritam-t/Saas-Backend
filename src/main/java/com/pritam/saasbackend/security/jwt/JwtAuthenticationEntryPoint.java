@@ -1,8 +1,10 @@
 package com.pritam.saasbackend.security.jwt;
 
+import com.pritam.saasbackend.common.api.ErrorCode;
+import com.pritam.saasbackend.common.api.ErrorResponseWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,12 @@ import java.io.IOException;
 public class JwtAuthenticationEntryPoint
         implements AuthenticationEntryPoint {
 
+    private final ErrorResponseWriter errorResponseWriter;
+
+    public JwtAuthenticationEntryPoint(ErrorResponseWriter errorResponseWriter) {
+        this.errorResponseWriter = errorResponseWriter;
+    }
+
     @Override
     public void commence(
             HttpServletRequest request,
@@ -20,14 +28,12 @@ public class JwtAuthenticationEntryPoint
             AuthenticationException authException
     ) throws IOException {
 
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        // JwtAuthenticationFilter reports a bad or expired token as BadCredentialsException;
+        // a request without a token arrives here from the ExceptionTranslationFilter.
+        ErrorCode code = authException instanceof BadCredentialsException
+                ? ErrorCode.INVALID_TOKEN
+                : ErrorCode.AUTHENTICATION_REQUIRED;
 
-        response.getWriter().write("""
-                {
-                  "error": "UNAUTHORIZED",
-                  "message": "Authentication is required"
-                }
-                """);
+        errorResponseWriter.write(request, response, code);
     }
 }
