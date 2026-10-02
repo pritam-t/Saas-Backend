@@ -231,7 +231,7 @@ Found while reconciling this document with the repo. Deliberately **not** change
 
 | Finding | Target phase |
 |---|---|
-| `security/api/SecurityTestController` exposes `/api/v1/auth/test` and `/api/v1/protected/test` in production code | Phase 2: delete, or move to `src/test` |
+| ~~`security/api/SecurityTestController` exposes `/api/v1/auth/test` and `/api/v1/protected/test` in production code~~ | **Done in Phase 2:** deleted; replaced by the test-only `ErrorScenarioController` |
 | `auth` package (login at `/api/v1/auth/login`, `AuthenticationService`, empty `AuthService`) is not in the planned package layout | Phase 3: fold into platform auth / `security` |
 | Duplicate empty classes `auth/dto/LoginRequest` and `auth/dto/LoginResponse` (the real records live in `auth/api`) | Phase 3 |
 | `TenantController` at `/api/tenants` is reachable by any authenticated token, with no role check | Phase 4: replaced by `POST /platform/tenants` |
@@ -241,6 +241,11 @@ Found while reconciling this document with the repo. Deliberately **not** change
 | `PlatformUserServiceIntegrationTest` sits in the `platformuser.persistence` package but tests the application service | Phase 3 |
 | `show-sql` and `format_sql` are on in the main `application.yml` | Phase 10: move to a dev-only profile (proposed) |
 | The JVM time zone is sent to PostgreSQL. `postgres:18` rejects the Windows legacy name `Asia/Calcutta`; tests pin `-Duser.timezone=UTC` in Surefire, but the app is unpinned | Phase 10: pin the time zone for the Docker/Compose runtime (proposed) |
+| `GlobalExceptionHandler` (in `common`) handles `auth.application.InvalidCredentialsException` explicitly, so `common` depends on `auth` | Phase 3: make it an `ApiException(INVALID_CREDENTIALS)` and drop the handler |
+| Exceptions thrown by filters other than the security entry point / access-denied handler still get Spring Boot's default `/error` body, not `ApiError` | Phase 8 (API contract polish): custom `ErrorController` if any such filter is added (proposed) |
+| `AuditService.recordIndependently` (`REQUIRES_NEW`) holds a second pool connection while the caller's is open | Phase 5: keep in mind for the pool-of-2 isolation test |
+| Hibernate's JSON format mapper for `audit_log.details` is not pinned (Jackson 2 from `jjwt-jackson` and Jackson 3 from Boot are both on the classpath); the JSONB round-trip test passes | Pin `hibernate.type.json_format_mapper` only if the round-trip test ever breaks |
+| `POST /api/tenants` with a duplicate slug throws `IllegalArgumentException`, which now returns a clean 500 `INTERNAL_ERROR` | Phase 4: replaced by `/platform/tenants` with a 409 domain code |
 
 ---
 
@@ -413,6 +418,8 @@ The owner's original 5-week blueprint planned a different stack and scope. The c
 
 Standard error body: `{ timestamp, status, code, message, path, fieldErrors[] }`, produced by a single `@RestControllerAdvice`. Use DTOs with bean validation; never expose entities.
 
+Implemented in Phase 2: `common.api.ApiError`, `ErrorCode` (the code list and statuses), `ApiException`, `GlobalExceptionHandler`, and `ErrorResponseWriter` for filter-level errors. Conventions: `.claude/rules/api-conventions.md`.
+
 **Platform (`/platform/**`, SUPER_ADMIN)**
 
 | Method | Path | Purpose |
@@ -529,7 +536,7 @@ Why schema-per-tenant (and the trade-offs vs. database-per-tenant and shared-sch
 
 - [x] Phase 0: reconcile doc with repo (discrepancies in 6 and 6.3; section 2 corrected)
 - [x] Phase 1: green baseline (15/15: original 10 + empty-DB schema test), validate mode, Testcontainers
-- [ ] Phase 2: error model, DTO conventions, audit interface
+- [x] Phase 2: error model, DTO conventions, audit interface (74/74 tests)
 - [ ] Phase 3: platform auth, JWT claims, refresh tokens
 - [ ] Phase 4: tenant provisioning and tenant migrations
 - [ ] Phase 5: tenant context, Hibernate multi-tenancy, isolation proof
