@@ -2,13 +2,13 @@ package com.pritam.saasbackend.security.jwt;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.pritam.saasbackend.support.IntegrationTest;
 
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@IntegrationTest
 class JwtServiceIntegrationTest {
 
     @Autowired

@@ -1,5 +1,6 @@
 package com.pritam.saasbackend.security.config;
 
+import com.pritam.saasbackend.security.jwt.JwtAccessDeniedHandler;
 import com.pritam.saasbackend.security.jwt.JwtAuthenticationEntryPoint;
 import com.pritam.saasbackend.security.jwt.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
@@ -14,11 +15,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(
-            JwtAuthenticationEntryPoint authenticationEntryPoint
+            JwtAuthenticationEntryPoint authenticationEntryPoint,
+            JwtAccessDeniedHandler accessDeniedHandler
     ) {
         this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
     }
 
     @Bean
@@ -48,10 +52,9 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 )
 
-                .exceptionHandling(exception ->
-                        exception.authenticationEntryPoint(
-                                authenticationEntryPoint
-                        )
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                 );
 
         return http.build();

@@ -31,3 +31,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Claude Code ###
+# Shared project config (rules, settings.json, hooks) is committed; personal files are not.
+.claude/*
+!.claude/rules/
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
+CLAUDE.local.md
+
+### Secrets ###
+.env
+!.env.example

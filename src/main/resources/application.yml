@@ -7,7 +7,11 @@ spring:
     username: postgres
     password: ${DB_PASSWORD}
 
+  flyway:
+    locations: classpath:db/migration/public
+
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: true

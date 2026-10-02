@@ -3,7 +3,7 @@ package com.pritam.saasbackend.permission.persistence;
 import com.pritam.saasbackend.permission.domain.Permission;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.pritam.saasbackend.support.IntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 
-@SpringBootTest
+@IntegrationTest
 class PermissionRepositoryIntegrationTest {
 
     @Autowired

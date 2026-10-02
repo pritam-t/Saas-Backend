@@ -1,9 +1,9 @@
 package com.pritam.saasbackend;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.pritam.saasbackend.support.IntegrationTest;
 
-@SpringBootTest
+@IntegrationTest
 class SaasBackendApplicationTests {
 
 	@Test
