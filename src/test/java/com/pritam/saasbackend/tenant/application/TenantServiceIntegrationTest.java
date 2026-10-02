@@ -5,7 +5,7 @@ import com.pritam.saasbackend.tenant.api.dto.TenantResponse;
 import com.pritam.saasbackend.tenant.persistence.TenantRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.pritam.saasbackend.support.IntegrationTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -13,7 +13,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
+@IntegrationTest
 @Transactional
 class TenantServiceIntegrationTest {
 
@@ -28,7 +28,7 @@ class TenantServiceIntegrationTest {
 
         CreateTenantRequest request =
                 new CreateTenantRequest(
-                        "Test Company",
+                        "Test Company " + UUID.randomUUID(),
                         "test-company-" + UUID.randomUUID()
                 );
 
@@ -36,7 +36,7 @@ class TenantServiceIntegrationTest {
                 tenantService.createTenant(request);
 
         assertThat(response.id()).isNotNull();
-        assertThat(response.name()).isEqualTo("Test Company");
+        assertThat(response.name()).isEqualTo(request.name());
         assertThat(response.slug()).isEqualTo(request.slug());
         assertThat(response.status()).isEqualTo(
                 com.pritam.saasbackend.tenant.domain.TenantStatus.ACTIVE
@@ -59,7 +59,7 @@ class TenantServiceIntegrationTest {
 
         CreateTenantRequest request =
                 new CreateTenantRequest(
-                        "First Company",
+                        "First Company " + UUID.randomUUID(),
                         slug
                 );
 
@@ -68,7 +68,7 @@ class TenantServiceIntegrationTest {
         assertThatThrownBy(() ->
                 tenantService.createTenant(
                         new CreateTenantRequest(
-                                "Second Company",
+                                "Second Company " + UUID.randomUUID(),
                                 slug
                         )
                 )

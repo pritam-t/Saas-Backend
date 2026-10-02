@@ -1,0 +1,6 @@
+# Layered on top of src/main/resources/application.yml (profile "test").
+# The datasource comes from the Testcontainers @ServiceConnection, not from here.
+security:
+  jwt:
+    secret: test-only-secret-key-for-jwt-signing-1234567890
+    access-token-expiration: 900000
